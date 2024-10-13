@@ -1,13 +1,12 @@
-  
- int frontTrigPin = 2;    // TRIG pin
- int frontEchoPin = 1;    // ECHO pin
- int rightTrigPin = 4;    // TRIG pin
- int rightEchoPin = 3;    // ECHO pin
- int leftTrigPin = 6;    // TRIG pin
- int leftEchoPin = 5;    // ECHO pin
+ int frontTrigPin = 3;    // TRIG pin
+ int frontEchoPin = 2;    // ECHO pin
+ int rightTrigPin = 5;    // TRIG pin
+ int rightEchoPin = 4;    // ECHO pin
+ int leftTrigPin = 7;    // TRIG pin
+ int leftEchoPin = 6;    // ECHO pin
  unsigned long previousMillis = 0;
  int interval = 5000;
- float distanceFront, distanceRight, distanceLeft;
+ float distanceFront, distanceRight, distanceLeft, duration_us;
 
 void printDistances(){
   Serial.print("distances: ");
@@ -63,7 +62,7 @@ void sensorRightValue(){
   digitalWrite(rightTrigPin, LOW);
 
   // measure duration of pulse from ECHO pin
-  int duration_us = pulseIn(rightEchoPin, HIGH);
+  float duration_us = pulseIn(rightEchoPin, HIGH);
 
   // calculate the distance
   distanceRight = 0.017 * duration_us;
@@ -78,7 +77,7 @@ void sensorFrontValue(){
   digitalWrite(frontTrigPin, LOW);
 
   // measure duration of pulse from ECHO pin
-  int duration_us = pulseIn(frontEchoPin, HIGH);
+  duration_us = pulseIn(frontEchoPin, HIGH);
 
   // calculate the distance
   distanceFront = 0.017 * duration_us;
@@ -91,7 +90,7 @@ void sensorLeftValue(){
   digitalWrite(leftTrigPin, LOW);
 
   // measure duration of pulse from ECHO pin
-  int duration_us = pulseIn(leftEchoPin, HIGH);
+  float duration_us = pulseIn(leftEchoPin, HIGH);
 
   // calculate the distance
   distanceLeft = 0.017 * duration_us;
@@ -103,6 +102,8 @@ void loop() {
   if(currentMillis - previousMillis >= 500){
     printDistances();
     sensorFrontValue();
+    sensorRightValue();
+    sensorLeftValue();
     if(distanceFront < 50){
       driveRight();
     } else {
@@ -111,4 +112,3 @@ void loop() {
     previousMillis = currentMillis;
   }
 }
-
