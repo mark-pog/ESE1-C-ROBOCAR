@@ -1,14 +1,18 @@
- int frontTrigPin = 3;    // TRIG pin
- int frontEchoPin = 2;    // ECHO pin
- int rightTrigPin = 5;    // TRIG pin
- int rightEchoPin = 4;    // ECHO pin
- int leftTrigPin = 7;    // TRIG pin
- int leftEchoPin = 6;    // ECHO pin
- unsigned long previousMillis = 0;
- int interval = 5000;
- float distanceFront, distanceRight, distanceLeft, duration_us;
+#define SafeDistance 15
 
-void printDistances(){
+
+
+int frontTrigPin = 3;  // TRIG pin
+int frontEchoPin = 2;  // ECHO pin
+int rightTrigPin = 5;  // TRIG pin
+int rightEchoPin = 4;  // ECHO pin
+int leftTrigPin = 7;   // TRIG pin
+int leftEchoPin = 6;   // ECHO pin
+unsigned long previousMillis = 0;
+int interval = 5000;
+float distanceFront, distanceRight, distanceLeft, duration_us;
+
+void printDistances() {
   Serial.print("distances: ");
   Serial.print(distanceFront);
   Serial.print("---");
@@ -35,27 +39,47 @@ void setup() {
 }
 
 
-void driveForward(){
-    /*digitalWrite(6, HIGH);
+void driveForward() {
+  /*digitalWrite(6, HIGH);
     digitalWrite(7, LOW); 
     analogWrite(11, speed);
     digitalWrite (4, HIGH); 
     digitalWrite(5, LOW); 
     analogWrite(9, speed);*/
-    Serial.println("Driving Forward");
+  Serial.println("Driving Forward");
 }
 
-void driveRight(){
-   /* digitalWrite(6, HIGH); 
+void driveRight() {
+  /* digitalWrite(6, HIGH); 
     digitalWrite(7, LOW); 
     analogWrite(11, speed);
     digitalWrite(4, HIGH); 
     digitalWrite(5, LOW); 
     analogWrite(9, speed - 100);*/
-    Serial.println("Driving Right");
+  Serial.println("Driving Right");
 }
 
-void sensorRightValue(){
+void driveLeft() {
+  /* digitalWrite(6, HIGH); 
+    digitalWrite(7, LOW); 
+    analogWrite(11, speed);
+    digitalWrite(4, HIGH); 
+    digitalWrite(5, LOW); 
+    analogWrite(9, speed - 100);*/
+  Serial.println("Driving Left");
+}
+
+void driveBack() {
+  /* digitalWrite(6, HIGH); 
+    digitalWrite(7, LOW); 
+    analogWrite(11, speed);
+    digitalWrite(4, HIGH); 
+    digitalWrite(5, LOW); 
+    analogWrite(9, speed - 100);*/
+  Serial.println("Driving Back");
+}
+
+void sensorRightValue() {
   // generate 10-microsecond pulse to TRIG pin
   digitalWrite(rightTrigPin, HIGH);
   delayMicroseconds(10);
@@ -68,9 +92,8 @@ void sensorRightValue(){
   distanceRight = 0.017 * duration_us;
 
   // print the value to Serial Monitor
-
 }
-void sensorFrontValue(){
+void sensorFrontValue() {
   // generate 10-microsecond pulse to TRIG pin
   digitalWrite(frontTrigPin, HIGH);
   delayMicroseconds(10);
@@ -81,9 +104,8 @@ void sensorFrontValue(){
 
   // calculate the distance
   distanceFront = 0.017 * duration_us;
-
 }
-void sensorLeftValue(){
+void sensorLeftValue() {
   // generate 10-microsecond pulse to TRIG pin
   digitalWrite(leftTrigPin, HIGH);
   delayMicroseconds(10);
@@ -99,13 +121,21 @@ void sensorLeftValue(){
 
 void loop() {
   unsigned long currentMillis = millis();
-  if(currentMillis - previousMillis >= 500){
+  if (currentMillis - previousMillis >= 500) {
     printDistances();
     sensorFrontValue();
     sensorRightValue();
     sensorLeftValue();
-    if(distanceFront < 50){
-      driveRight();
+    if (distanceFront < SafeDistance) {
+      if (distanceLeft < SafeDistance && distanceRight < SafeDistance) {
+        driveBack();
+      } else {
+        if (distanceLeft > distanceRight) {
+          driveLeft();
+        } else if (distanceLeft < distanceRight) {
+          driveRight();
+        }
+      }
     } else {
       driveForward();
     }
