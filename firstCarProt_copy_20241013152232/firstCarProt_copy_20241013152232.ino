@@ -40,12 +40,12 @@ void setup() {
 
 
 void driveForward() {
-  /*digitalWrite(6, HIGH);
-    digitalWrite(7, LOW); 
-    analogWrite(11, speed);
-    digitalWrite (4, HIGH); 
-    digitalWrite(5, LOW); 
-    analogWrite(9, speed);*/
+  digitalWrite(8, HIGH);
+  digitalWrite(9, LOW);
+  analogWrite(11, 0);
+  digitalWrite(7, HIGH);
+  digitalWrite(6, LOW);
+  analogWrite(10, 0);
   Serial.println("Driving Forward");
 }
 
@@ -120,25 +120,26 @@ void sensorLeftValue() {
 
 
 void loop() {
-  unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis >= 500) {
-    printDistances();
-    sensorFrontValue();
-    sensorRightValue();
-    sensorLeftValue();
-    if (distanceFront < SafeDistance) {
-      if (distanceLeft < SafeDistance && distanceRight < SafeDistance) {
-        driveBack();
-      } else {
-        if (distanceLeft > distanceRight) {
-          driveLeft();
-        } else if (distanceLeft < distanceRight) {
-          driveRight();
-        }
-      }
-    } else {
-      driveForward();
-    }
-    previousMillis = currentMillis;
-  }
+  driveForward();
+  // unsigned long currentMillis = millis();
+  // if (currentMillis - previousMillis >= 500) {
+  //   printDistances();
+  //   sensorFrontValue();
+  //   sensorRightValue();
+  //   sensorLeftValue();
+  //   if (distanceFront < SafeDistance) {
+  //     if (distanceLeft < SafeDistance && distanceRight < SafeDistance) {
+  //       driveBack();
+  //     } else {
+  //       if (distanceLeft > distanceRight) {
+  //         driveLeft();
+  //       } else if (distanceLeft < distanceRight) {
+  //         driveRight();
+  //       }
+  //     }
+  //   } else {
+  //     driveForward();
+  //   }
+  //   previousMillis = currentMillis;
+  // }
 }
