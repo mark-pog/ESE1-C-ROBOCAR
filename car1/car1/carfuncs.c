@@ -10,43 +10,54 @@
 
 void driveForward(int speed) {
 	OCR0A = speed;
-	digitalWrite(10, 0); // LOW
-	digitalWrite(5, 0);  // LOW
+	OCR0B = 0;
+	OCR1B = 0;
+	//digitalWrite(10, 0); // LOW
+	//digitalWrite(5, 0);  // LOW
 	OCR1A = speed;
+	//PORTC0 &= ~(1<<0);
 }
 
 void driveRight(int speed) {
-	digitalWrite(6, 0); // LOW
-	OCR1A = speed;
-	// analogWrite(11, 930);
-	digitalWrite(5, 0); // LOW
-	OCR1A = speed;
-	// analogWrite(9, 900);
+		//digitalWrite(11, 0);      // LOW
+		OCR1B = 0;
+		OCR1A = 0;
+		OCR0A = speed;
+		//analogWrite(6, 900);
+		//digitalWrite(9, 0);       // LOW
+		OCR0B = speed;
+		//analogWrite(5, 930);
+		//PORTC0 &= ~(1<<0);
 }
 
 void driveLeft(int speed) {
-	digitalWrite(11, 0);      // LOW
-	OCR0A = speed;
-	//analogWrite(6, 900);
-	digitalWrite(9, 0);       // LOW
-	OCR0B = speed;
-	//analogWrite(5, 930);
+		OCR0A = 0;
+		OCR0B = 0;
+		OCR1A = speed;
+		// analogWrite(11, 930);
+		OCR1B = speed;
+		// analogWrite(9, 900);
+		//PORTC0 &= ~(1<<0);
 }
 
 void driveBack(int speed) {
-	digitalWrite(6, 0); // LOW
+	OCR0A = 0;
+	//digitalWrite(6, 0); // LOW
 	OCR0B = speed;
 	OCR1B = speed;
 	// analogWrite(11, speed);
 	// analogWrite(5, speed);
-	digitalWrite(9, 0); // LOW
+	OCR1A = 0;
+	//digitalWrite(9, 0); // LOW
+	//PORTC0 |= (1<<0);
 }
 
 void stop() {
-	digitalWrite(6, 0);  // LOW
-	digitalWrite(11, 0); // LOW
-	digitalWrite(5, 0);  // LOW
-	digitalWrite(9, 0);  // LOW
+	OCR0A = 0;
+	OCR0B = 0;
+	OCR1A = 0;
+	OCR1B = 0;
+	//PORTC0 &= ~(1<<0);
 }
 
 
@@ -57,7 +68,7 @@ float sensorValue(int pin) {
 	digitalWrite(13, LOW);
 
 	// measure duration of pulse from ECHO pin
-	float duration1 = pulseIn(pin, HIGH, 5000); // Assume rightEchoPin = PB5
+	float duration1 = pulseIn(pin, HIGH, 400); // Assume rightEchoPin = PB5
 
 	// calculate the distance
 	float distance = 0.087 * duration1;

@@ -1,5 +1,6 @@
 #define F_CPU 16000000UL
 #define SafeDistance 23
+#define FrontSafeDistance 40
 #define HIGH 1
 #define LOW 0
 #define INPUT 0
@@ -10,28 +11,36 @@
 #include <util/delay.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <avr/interrupt.h>
+#include "lcd.h"
+extern void lcd_backlight(char on);    //not in lcd.h
 #include "CarFunctions.h"
 #include "basicFunctions.h"
 
 
 
-
-int workMode = 0;
+int i = 0;
+int workMode = 2;
 int irSensor1 = 0;
 int irsensor2 = 0;
-//volatile uint8_t speed = 200;
+volatile char command = 0;
+volatile uint8_t speed = 200;
 int frontEchoPin = 8;  // ECHO pin
 int rightEchoPin = 4;  // ECHO pin
 int leftEchoPin = 7;   // ECHO pin
-int leftTrigPin = 13;  // TRIG pin
+// TRIG pin
 int frontTrigPin = 13;
-int rightTrigPin = 13;
 unsigned long previousMillis = 0;
 unsigned long previousLCDMillis = 0;
 unsigned long previousButtonMillis = 0;
 int interval = 1000;
-char command;
 float distanceFront, distanceRight, distanceLeft, duration1, duration2, duration3;
+
+
+// Initialize UART for Bluetooth communication and debugging
+
+// UART RX Interrupt Service Routine
+
 
 void UART_Init(unsigned long baudrate) {
 	// Set the baud rate
@@ -40,10 +49,14 @@ void UART_Init(unsigned long baudrate) {
 	UBRR0L = (unsigned char)ubrr;
 
 	// Enable transmitter
-	UCSR0B = (1 << TXEN0);
+	UCSR0B = (1 << RXEN0) | (1 << TXEN0) | (1 << RXCIE0); 
 
 	// Set frame format: 8 data bits, 1 stop bit, no parity
 	UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);
+}
+
+ISR(USART_RX_vect) {
+	command = UDR0; // Read received data
 }
 
 int UART_Transmit(char data, FILE *stream) {
@@ -62,17 +75,6 @@ FILE uart_output = FDEV_SETUP_STREAM(UART_Transmit, NULL, _FDEV_SETUP_WRITE);
 
 
 
-void pwm_init(void) {
-
-	// Configure Timer1 for PWM (Pins 9, 10)
-	TCCR1A = (1 << COM1A1) | (1 << COM1B1) | (1 << WGM11); // Fast PWM, 10-bit
-	TCCR1B = (1 << WGM12) | (1 << WGM13) | (1 << CS11);    // Prescaler = 8
-	ICR1 = 255; // TOP value for 8-bit resolution
-
-	// Configure Timer0 for PWM (Pins 5, 6)
-	TCCR0A = (1 << COM0A1) | (1 << COM0B1) | (1 << WGM00) | (1 << WGM01); // Fast PWM
-	TCCR0B = (1 << CS01); // Prescaler = 8
-}
 
 void printDistances() {
 	printf("distances: ");
@@ -84,114 +86,195 @@ void printDistances() {
 	printf(" cm\n");
 }
 
+volatile uint32_t ms = 0;
+
+void millis_init(void) {
+	ms = 0;
+	TCCR2A |= (1 << WGM21); // CTC mode
+	TCCR2B |= (1 << CS22);  // Prescaler = 64
+	OCR2A = 249;            // Compare value for 1ms (assuming 16MHz clock)
+
+	TIMSK2 |= (1 << OCIE2A); // Enable Timer2 Compare Match A interrupt
+	sei();                   // Enable global interrupts
+}
+
+ISR(TIMER2_COMPA_vect) {
+	ms++;
+}
+
+inline uint32_t millis(void) {
+	cli();
+	uint32_t ret = ms;
+	sei();
+
+	return ret;
+}
+
+void checkCommand() {
+	if (command) {
+		printf("Received Command: %c\n", command);
+		switch (command) {
+			case 'F': driveForward(speed); break;
+			case 'B': driveBack(speed); break;
+			case 'L': driveLeft(speed); break;
+			case 'R': driveRight(speed); break;
+			case 'S': stop(); break;
+			//case '+': increaseSpeed(); break;
+			//case '-': decreaseSpeed(); break;
+			default: printf("Invalid Command\n"); break;
+		}
+		command = 0; // Reset command after execution
+	}
+}
+
+
 
 int main() {
+	lcd_init(LCD_ON_DISPLAY);
+	millis_init();
 	UART_Init(9600);  // Initialize UART at 9600 baud
 	stdout = &uart_output;  // Redirect stdout to UART
-	pinMode(5, OUTPUT);
-	pinMode(6, OUTPUT);
-	pinMode(9, OUTPUT);
-	pinMode(10, OUTPUT);
+	pinMode(5, OUTPUT);    //motor pins
+	pinMode(6, OUTPUT);    //
+	pinMode(9, OUTPUT);    //
+	pinMode(10, OUTPUT);   //
 	pwm_init();
-	pinMode(20, INPUT_PULLUP);
-	pinMode(frontTrigPin, OUTPUT);
-	pinMode(frontEchoPin, INPUT);
-	pinMode(rightTrigPin, OUTPUT);
-	pinMode(rightEchoPin, INPUT);
-	pinMode(leftTrigPin, OUTPUT);
-	pinMode(leftEchoPin, INPUT);
-	pinMode(12, INPUT);
-	pinMode(11, INPUT);
-	pinMode(2, INPUT);
-	pinMode(3, INPUT);
-	pinMode(4, INPUT);
-	pinMode(7, INPUT);
-	pinMode(8, INPUT);
-	pinMode(13, OUTPUT);
+	pinMode(20, INPUT_PULLUP); // button pin
+	pinMode(frontTrigPin, OUTPUT);    //   Ultrasonic sensors pins
+	pinMode(frontEchoPin, INPUT);    //
+	pinMode(rightEchoPin, INPUT);    //
+	pinMode(leftEchoPin, INPUT);    //
+	pinMode(12, INPUT);     // IR sensors pin
+	pinMode(11, INPUT);    //
+	pinMode(2, INPUT);    //
+	pinMode(3, INPUT);    //
+	DDRC |= (1<<0);
+	lcd_clrscr();
+	lcd_gotoxy(0, 0);
+	lcd_puts_P("DADAMS CO.");
+	lcd_gotoxy(1, 1);
+	lcd_puts("PRESENTS");
 	while (1)
 	{
 		// 70 starts to run
-		//unsigned long currentMillis = millis();
+	
+		unsigned long currentMillis = millis();
 		if (workMode == 0) {
-			//if (currentMillis - previousMillis >= 100) {
+			int speedUS = 0;
+			if (currentMillis - previousMillis >= 100) {
 				distanceRight = sensorValue(rightEchoPin);
-				_delay_ms(100);
+				_delay_ms(10);
 				distanceFront = sensorValue(frontEchoPin);
-				_delay_ms(100);
+				_delay_ms(10);
 				distanceLeft = sensorValue(leftEchoPin);
-				_delay_ms(100);
+				_delay_ms(10);
 				printDistances();
 				
-				if (distanceFront < SafeDistance) {
+				if (distanceFront < FrontSafeDistance) {
 					if (distanceLeft < SafeDistance && distanceRight < SafeDistance) {
-						driveBack();
+						driveBack(speedUS);
 						} else {
 						if (distanceLeft > distanceRight) {
-							driveRight();
+							driveLeft(speedUS);
 							} else if (distanceLeft < distanceRight) {
-							driveLeft();
+							driveRight(speedUS);
 						}
 					}
 					} else if (distanceLeft < SafeDistance) {
-					driveLeft();
+					driveRight(speedUS);
 					} else if (distanceRight < SafeDistance) {
-					driveRight();
+					driveLeft(speedUS);
 					} else {
-					driveForward();
+					driveForward(speedUS);
 				}
-				//showlcd();
-			//}
+				//lcd_clrscr();
+				//lcd_gotoxy(0, 0);
+				//lcd_puts("Ultrasonic");
+				previousMillis = currentMillis;
+			}
 		}
-		//if (mode == 1) {
-		//speed = 317;
-		//if (digitalRead(2) == 1) {
-		//driveRight();
-		//_delay_ms(300);
-		//} else if (digitalRead(3) == 1) {
-		//driveLeft();
-		//_delay_ms(300);
-		//} else if (digitalRead(12) == 1) {
-		//driveRight();
-		//} else if (digitalRead(10) == 1) {
-		//driveLeft();
-		//} else {
-		//driveForward();
-		//}
-		//// showlcd();
-		//}
+		
+		
+		
+		
+		if (workMode == 1) {
+			if (digitalRead(2) == 1) {
+				driveLeft(100);
+				_delay_ms(300);
+			} else if (digitalRead(3) == 1) {
+				driveRight(100);
+				_delay_ms(300);
+			} else if (digitalRead(12) == 1) {
+				driveLeft(100);
+			} else if (digitalRead(10) == 1) {
+				driveRight(100);
+			} else {
+				driveForward(100);
+			}
+			i = 0;
+			//lcd_clrscr();
+			//lcd_gotoxy(0, 0);
+			//lcd_puts("IR");
+		}
+		
+		
+		
+		
+		
+		if (workMode == 2) {
+			if (i == 0)
+			{
+				stop();
+				i++;
+			}
+			//lcd_clrscr();
+			//lcd_gotoxy(0, 0);
+			//lcd_puts("BLuetooth");
+			checkCommand();
+		// showlcd();
+		// Check if there's incoming data from Bluetooth (phone)
+		// if (BTSerial.available()) {
+		//     command = BTSerial.read();  // Read the incoming command
+		//     Serial.print("Received command: ");
+		//     Serial.println(command);
+		//     Serial.println(speed);
+		//     showlcd();
 		//
-		//if (mode == 2) {
-		//// showlcd();
-		//// Check if there's incoming data from Bluetooth (phone)
-		//// if (BTSerial.available()) {
-		////     command = BTSerial.read();  // Read the incoming command
-		////     Serial.print("Received command: ");
-		////     Serial.println(command);
-		////     Serial.println(speed);
-		////     showlcd();
-		////
-		////     // Process the command to control the robot car
-		////     controlRobot(command);
-		//// }
-		//
-		//// If data is entered in the Serial Monitor, send it to Bluetooth (useful for debugging)
-		//// if (Serial.available()) {
-		////     char outgoingData = Serial.read();
-		////     BTSerial.write(outgoingData);  // Send to phone
-		//// }
-		//}
-		//
-		//if (digitalRead(20) == 0 /* && currentMillis - previousButtonMillis >= interval */) {
-		//mode++;
-		//// showlcd();
-		//// Serial.println(mode);
-		//// previousButtonMillis = currentMillis;
-		//}
-		//if (mode == 3) {
-		//mode = 0;
-		//}
+		//     // Process the command to control the robot car
+		//     controlRobot(command);
+		// }
+		
+		// If data is entered in the Serial Monitor, send it to Bluetooth (useful for debugging)
+		// if (Serial.available()) {
+		//     char outgoingData = Serial.read();
+		//     BTSerial.write(outgoingData);  // Send to phone
+		// }
+		}
+		
+		if (digitalRead(20) == 0  && currentMillis - previousButtonMillis >= interval) {
+			workMode++;
+		// showlcd();
+		// Serial.println(mode);
+			previousButtonMillis = currentMillis;
+			printf("%d", workMode);
+			lcd_clrscr();
+			lcd_gotoxy(0,1);
+			if (workMode == 0 || workMode == 3){
+				lcd_puts(" Ultrasonic");
+			} else if (workMode == 1){
+				lcd_puts(" IR");
+			} else {
+				lcd_puts(" Bluetooth");
+			}
+		}
+		if (workMode == 3) {
+			workMode = 0;
+		}
 	}
 }
+
+
+
 
 
 //void increaseSpeed() {

@@ -6,29 +6,27 @@
 
 #define HIGH 1
 #define LOW 0
-volatile uint32_t ms = 0;
 
-void millis_init(void) {
-	ms = 0;
-	TCCR2A |= (1 << WGM21); // CTC mode
-	TCCR2B |= (1 << CS22);  // Prescaler = 64
-	OCR2A = 249;            // Compare value for 1ms (assuming 16MHz clock)
-
-	TIMSK2 |= (1 << OCIE2A); // Enable Timer2 Compare Match A interrupt
-	sei();                   // Enable global interrupts
-}
-
-ISR(TIMER2_COMPA_vect) {
-	ms++;
-}
-
-inline uint32_t millis(void) {
-	cli();
-	uint32_t ret = ms;
-	sei();
-
-	return ret;
-}
+//void millis_init(void) {
+	//ms = 0;
+	//TCCR2A |= (1 << WGM21); // CTC mode
+	//TCCR2B |= (1 << CS22);  // Prescaler = 64
+	//OCR2A = 249;            // Compare value for 1ms (assuming 16MHz clock)
+//
+	//TIMSK2 |= (1 << OCIE2A); // Enable Timer2 Compare Match A interrupt
+	//sei();                   // Enable global interrupts
+//}
+//ISR(TIMER2_COMPA_vect) {
+	//ms++;
+//}
+//
+//inline uint32_t millis(void) {
+	//cli();
+	//uint32_t ret = ms;
+	//sei();
+//
+	//return ret;
+//}
 
 
 
@@ -83,11 +81,18 @@ int digitalRead(int pin) {
 			} else {
 			return LOW;
 		}
-		} else if (pin >= 8 && pin < 14) {
+	} else if (pin >= 8 && pin < 14) {
 		pin -= 8;
 		if (PINB & (1 << pin)) {
 			return HIGH;
 			} else {
+			return LOW;
+		}
+	} else {
+		pin = 7;
+		if (PINB & (1 << pin)) {
+			return HIGH;
+		} else {
 			return LOW;
 		}
 	}
@@ -140,4 +145,17 @@ unsigned long pulseIn(uint8_t pin, uint8_t state, unsigned long timeout) {
 		}
 	}
 	return width; // Return width in microseconds
+}
+
+
+void pwm_init(void) {
+
+	// Configure Timer1 for PWM (Pins 9, 10)
+	TCCR1A = (1 << COM1A1) | (1 << COM1B1) | (1 << WGM11); // Fast PWM, 10-bit
+	TCCR1B = (1 << WGM12) | (1 << WGM13) | (1 << CS11);    // Prescaler = 8
+	ICR1 = 255; // TOP value for 8-bit resolution
+
+	// Configure Timer0 for PWM (Pins 5, 6)
+	TCCR0A = (1 << COM0A1) | (1 << COM0B1) | (1 << WGM00) | (1 << WGM01); // Fast PWM
+	TCCR0B = (1 << CS01); // Prescaler = 8
 }

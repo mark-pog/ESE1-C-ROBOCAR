@@ -22,4 +22,6 @@ extern void millis_init(void);
 
 extern inline uint32_t millis(void);
 
+extern void pwm_init(void);
+
 #endif /* BASICFUNCTIONS_H_ */
